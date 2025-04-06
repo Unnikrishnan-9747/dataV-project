@@ -82,12 +82,12 @@ def extract_and_store_csv_data(context):
         context.log.info(f"Loaded {len(df_d1)} records from employee_survey.csv")
         
         # Process d2.csv (Employee Data)
-        d2_path = Path('employee_mentalhealth1.csv')
+        d2_path = Path('employee_mentalhealth.csv')
         if not d2_path.exists():
             raise FileNotFoundError(f"Input file not found: {d2_path}")
         
         df_d2 = pd.read_csv(d2_path)
-        context.log.info(f"Loaded {len(df_d2)} records from employee_mentalhealth1.csv")
+        context.log.info(f"Loaded {len(df_d2)} records from employee_mentalhealth.csv")
         
         client = MongoClient("mongodb://localhost:27017/", serverSelectionTimeoutMS=5000)
         try:
@@ -725,32 +725,14 @@ def create_visualizations(context, analysis_results):
         analysis_results["mental_health_by_age"].to_csv("report_images/mental_health_by_age_data.csv", index=False)
         
         # Correlation matrix heatmap
-        plt.figure(figsize=(12, 8))
-        ax = sns.heatmap(
-            analysis_results["correlation_matrix"], 
-            annot=True, 
-            cmap='coolwarm', 
-            center=0,
-            fmt=".2f",  # Format to 2 decimal places
-            annot_kws={"size": 10},  # Adjust annotation size
-            linewidths=0.5,  # Add lines between cells
-            linecolor='white'  # Line color
-        )
-        plt.title('Correlation Matrix of Workplace Factors', pad=20)
-        plt.xticks(rotation=45, ha='right')  # Rotate x-axis labels
-        plt.yticks(rotation=0)  # Keep y-axis labels horizontal
-        plt.tight_layout()
-
-        # Save the figure
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(analysis_results["correlation_matrix"], annot=True, cmap='coolwarm', center=0)
+        plt.title('Correlation Matrix of Workplace Factors')
         img11_path = Path("report_images/correlation_matrix.png").absolute()
-        plt.savefig(img11_path, bbox_inches='tight', dpi=300)
+        plt.savefig(img11_path)
         plt.close()
-
-        # Save the data with proper index naming
-        corr_df = analysis_results["correlation_matrix"]
-        corr_df.index.name = 'Variables'
-        corr_df.to_csv("report_images/correlation_matrix_data.csv", index=True)
         results["correlation_matrix"] = str(img11_path)
+        analysis_results["correlation_matrix"].to_csv("report_images/correlation_matrix_data.csv", index=True)
         
         # Create dashboard.py with all visualizations
         dashboard_code = """
@@ -844,39 +826,17 @@ def create_dashboard():
                       title='Mental Health Conditions by Age Group')
 
         # Create correlation matrix plot
-        try:
-            # Handle different possible formats of the correlation matrix
-            if 'Unnamed: 0' in correlation_matrix.columns:
-                corr_data = correlation_matrix.set_index('Unnamed: 0')
-            elif 'Variables' in correlation_matrix.columns:
-                corr_data = correlation_matrix.set_index('Variables')
-            else:
-                corr_data = correlation_matrix
-            
-            plt.figure(figsize=(12, 8))
-            sns.heatmap(
-                corr_data,
-                annot=True,
-                cmap='coolwarm',
-                center=0,
-                fmt=".2f",
-                annot_kws={"size": 10},
-                linewidths=0.5,
-                linecolor='white'
-            )
-            plt.title('Correlation Matrix of Workplace Factors', pad=20)
-            plt.xticks(rotation=45, ha='right')
-            plt.yticks(rotation=0)
-            plt.tight_layout()
-            
-            # Save to buffer
-            buf = BytesIO()
-            plt.savefig(buf, format="png", bbox_inches='tight', dpi=300)
-            plt.close()
-            encoded_corr = base64.b64encode(buf.getvalue()).decode("ascii")
-        except Exception as e:
-            print(f"Error creating correlation matrix: {str(e)}")
-            encoded_corr = ""
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(correlation_matrix.set_index('Unnamed: 0') if 'Unnamed: 0' in correlation_matrix.columns else correlation_matrix, 
+                   annot=True, cmap='coolwarm', center=0)
+        plt.title('Correlation Matrix of Workplace Factors')
+        plt.tight_layout()
+        
+        # Save it to a temporary buffer
+        buf = BytesIO()
+        plt.savefig(buf, format="png")
+        plt.close()
+        encoded_corr = base64.b64encode(buf.getvalue()).decode("ascii")
 
         # Set up layout with tabs
         app.layout = dbc.Container([
